@@ -1338,6 +1338,7 @@ interface VideoEncoder : EventTarget {
   undefined close();
 
   static Promise<VideoEncoderSupport> isConfigSupported(VideoEncoderConfig config);
+  static sequence<VideoEncoderImplementation> availableImplementations();
 };
 
 dictionary VideoEncoderInit {
@@ -1585,6 +1586,13 @@ Methods {#videoencoder-methods}
            2. Resolve |p| with |encoderSupport|.
     5. Return |p|.
   </dd>
+
+  <dt><dfn method for=VideoEncoder>availableImplementations()</dfn></dt>
+  <dd>
+    Returns a sequence of video encoder implementations where each {{VideoEncoderImplementation}}
+    holds the unique {{VideoEncoderIdentifier}} and what the the corresponding
+    {{VideoEncoderCapabilities}} are.
+  </dd>
 </dl>
 
 Algorithms {#videoencoder-algorithms}
@@ -1726,6 +1734,130 @@ dictionary SvcOutputMetadata {
 :: A number that identifies the [=temporal layer=] for the associated
     {{EncodedVideoChunk}}.
 
+
+Implementations and Capabilities{#implementations-and-capabilities}
+===============================
+
+<dfn>VideoEncoderImplementation</dfn>{#video-encoder-implementation}
+------------------------------------------------------------------------
+<xmp class='idl'>
+dictionary VideoEncoderImplementation {
+  VideoEncoderIdentifier identifier;
+  VideoEncoderCapabilities capabilities;
+};
+</xmp>
+
+<dl>
+  <dt><dfn dict-member for=VideoEncoderImplementation>identifier</dfn></dt>
+  <dd>
+    Holds information to uniquely identify an encoder implementation.
+  </dd>
+  <dt><dfn dict-member for=VideoEncoderImplementation>capabilities</dfn></dt>
+  <dd>
+    Describes the video coding capabilities of the implementation.
+  </dd>
+</dl>
+
+<dfn>VideoEncoderIdentifier</dfn>{#video-encoder-identifier}
+------------------------------------------------------------------------
+<xmp class='idl'>
+dictionary VideoEncoderIdentifier {
+  DOMString implementationId;
+  DOMString codecName;
+  DOMString implementationName;
+};
+</xmp>
+
+<dl>
+  <dt><dfn dict-member for=VideoEncoderIdentifier>implementationId</dfn></dt>
+  <dd>
+    A string uniquely identifying the video encoder implementation.
+  </dd>
+  <dt><dfn dict-member for=VideoEncoderIdentifier>codecName</dfn></dt>
+  <dd>
+    The <a>codec string</a> describing the codec produced by the video encoder.
+  </dd>
+  <dt><dfn dict-member for=VideoEncoderIdentifier>implementationName</dfn></dt>
+  <dd>
+    The name of the video encoder implementation (libaom, libvpx for example).
+  </dd>
+</dl>
+
+
+<dfn>VideoEncoderCapabilities</dfn>{#video-encoder-capabilities}
+------------------------------------------------------------------------
+<xmp class='idl'>
+dictionary VideoEncoderCapabilities {
+  boolean isHardware;
+  sequence<DOMString> supportedBitrateModes;
+  QpRange qpRange;
+  VideoEncoderPredictionConstraints predictionConstraints;
+};
+</xmp>
+
+<dl>
+  <dt><dfn dict-member for=VideoEncoderCapabilities>isHardware</dfn></dt>
+  <dd>
+    Whether the implementation is hardware or software based.
+  </dd>
+  <dt><dfn dict-member for=VideoEncoderCapabilities>supportedBitrateModes</dfn></dt>
+  <dd>
+    Which bitrate modes the implementation supports. A set of "cbr", "vbr" and "cqp".
+  </dd>
+  <dt><dfn dict-member for=VideoEncoderCapabilities>qpRange</dfn></dt>
+  <dd>
+    The minimum and maximum QP value supported by the implementation.
+  </dd>
+  <dt><dfn dict-member for=VideoEncoderCapabilities>predictionConstraints</dfn></dt>
+  <dd>
+    Describes how reference buffers can be used for prediction.
+  </dd>
+</dl>
+
+<dfn>VideoEncoderPredictionConstraints</dfn>{#video-encoder-prediction-constraints}
+------------------------------------------------------------------------
+<xmp class='idl'>
+dictionary VideoEncoderPredictionConstraints {
+  unsigned long numReferenceBuffers;
+  unsigned long maxReferences;
+  sequence<DOMString> supportedFrameTypes;
+};
+</xmp>
+
+<dl>
+  <dt><dfn dict-member for=VideoEncoderPredictionConstraints>numReferenceBuffers</dfn></dt>
+  <dd>
+    How many predictions buffers the implementation supports.
+  </dd>
+  <dt><dfn dict-member for=VideoEncoderPredictionConstraints>maxReferences</dfn></dt>
+  <dd>
+    How many reference buffers that can be predicted from when encoding a frame.
+  </dd>
+  <dt><dfn dict-member for=VideoEncoderPredictionConstraints>supportedFrameTypes</dfn></dt>
+  <dd>
+    What frame types the implementation can produce. Set of "key", "start" and "delta"
+  </dd>
+</dl>
+
+<dfn>QpRange</dfn>{#qp-range}
+------------------------------------------------------------------------
+<xmp class='idl'>
+dictionary QpRange {
+  unsigned long minQp;
+  unsigned long maxQp;
+};
+</xmp>
+
+<dl>
+  <dt><dfn dict-member for=QpRange>minQp</dfn></dt>
+  <dd>
+    The minimum QP supported by the implementation. A minimum QP of 0 means lossless encoding.
+  </dd>
+  <dt><dfn dict-member for=QpRange>maxQp</dfn></dt>
+  <dd>
+    The maximum QP supported by the implementation.
+  </dd>
+</dl>
 
 Configurations{#configurations}
 ===============================
