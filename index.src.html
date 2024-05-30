@@ -1333,11 +1333,13 @@ interface VideoEncoder : EventTarget {
 
   undefined configure(VideoEncoderConfig config);
   undefined encode(VideoFrame frame, optional VideoEncoderEncodeOptions options = {});
+  undefined encodeManual(VideoFrame frame, sequence<FrameEncodeOptions> settings);
   Promise<undefined> flush();
   undefined reset();
   undefined close();
 
   static Promise<VideoEncoderSupport> isConfigSupported(VideoEncoderConfig config);
+  static sequence<VideoEncoderImplementation> availableImplementations();
 };
 
 dictionary VideoEncoderInit {
@@ -1508,6 +1510,14 @@ Methods {#videoencoder-methods}
     5. Return `"processed"`.
   </dd>
 
+<dt><dfn method for=VideoEncoder>encodeManual(|frame|, |settings|)</dfn></dt>
+  <dd>
+    [=Enqueues a control message=] to encode the given |frame| according to |settings|.
+
+    When invoked, run these steps:
+    1. Do awsome stuff.
+  </dd>
+
   <dt><dfn method for=VideoEncoder>flush()</dfn></dt>
   <dd>
     Completes all [=control messages=] in the [=control message queue=]
@@ -1584,6 +1594,13 @@ Methods {#videoencoder-methods}
                 2. Set {{VideoEncoderSupport/supported}} to |supported|.
            2. Resolve |p| with |encoderSupport|.
     5. Return |p|.
+  </dd>
+
+  <dt><dfn method for=VideoEncoder>availableImplementations()</dfn></dt>
+  <dd>
+    Returns a sequence of video encoder implementations where each {{VideoEncoderImplementation}}
+    holds the unique {{VideoEncoderIdentifier}} and what the the corresponding
+    {{VideoEncoderCapabilities}} are.
   </dd>
 </dl>
 
@@ -1726,6 +1743,140 @@ dictionary SvcOutputMetadata {
 :: A number that identifies the [=temporal layer=] for the associated
     {{EncodedVideoChunk}}.
 
+
+Implementations and Capabilities{#implementations-and-capabilities}
+===============================
+
+<dfn>VideoEncoderImplementation</dfn>{#video-encoder-implementation}
+------------------------------------------------------------------------
+<xmp class='idl'>
+dictionary VideoEncoderImplementation {
+  VideoEncoderIdentifier identifier;
+  VideoEncoderCapabilities capabilities;
+};
+</xmp>
+
+<dl>
+  <dt><dfn dict-member for=VideoEncoderImplementation>identifier</dfn></dt>
+  <dd>
+    Holds information to uniquely identify an encoder implementation.
+  </dd>
+  <dt><dfn dict-member for=VideoEncoderImplementation>capabilities</dfn></dt>
+  <dd>
+    Describes the video coding capabilities of the implementation.
+  </dd>
+</dl>
+
+<dfn>VideoEncoderIdentifier</dfn>{#video-encoder-identifier}
+------------------------------------------------------------------------
+<xmp class='idl'>
+dictionary VideoEncoderIdentifier {
+  DOMString implementationId;
+  DOMString codecName;
+  DOMString implementationName;
+};
+</xmp>
+
+<dl>
+  <dt><dfn dict-member for=VideoEncoderIdentifier>implementationId</dfn></dt>
+  <dd>
+    A string uniquely identifying the video encoder implementation.
+  </dd>
+  <dt><dfn dict-member for=VideoEncoderIdentifier>codecName</dfn></dt>
+  <dd>
+    The <a>codec string</a> describing the codec produced by the video encoder.
+  </dd>
+  <dt><dfn dict-member for=VideoEncoderIdentifier>implementationName</dfn></dt>
+  <dd>
+    The name of the video encoder implementation (libaom, libvpx for example).
+  </dd>
+</dl>
+
+
+<dfn>VideoEncoderCapabilities</dfn>{#video-encoder-capabilities}
+------------------------------------------------------------------------
+<xmp class='idl'>
+dictionary VideoEncoderCapabilities {
+  boolean isHardware;
+  QpRange qpRange;
+  VideoEncoderPredictionConstraints predictionConstraints;
+};
+</xmp>
+
+<dl>
+  <dt><dfn dict-member for=VideoEncoderCapabilities>isHardware</dfn></dt>
+  <dd>
+    Whether the implementation is hardware or software based.
+  </dd>
+  <dt><dfn dict-member for=VideoEncoderCapabilities>qpRange</dfn></dt>
+  <dd>
+    The minimum and maximum QP value supported by the implementation.
+  </dd>
+  <dt><dfn dict-member for=VideoEncoderCapabilities>predictionConstraints</dfn></dt>
+  <dd>
+    Describes how reference buffers can be used for prediction.
+  </dd>
+</dl>
+
+<dfn>VideoEncoderPredictionConstraints</dfn>{#video-encoder-prediction-constraints}
+------------------------------------------------------------------------
+<xmp class='idl'>
+dictionary VideoEncoderPredictionConstraints {
+  unsigned long numReferenceBuffers;
+  unsigned long maxReferences;
+  sequence<DOMString> supportedFrameTypes;
+};
+</xmp>
+
+<dl>
+  <dt><dfn dict-member for=VideoEncoderPredictionConstraints>numReferenceBuffers</dfn></dt>
+  <dd>
+    How many predictions buffers the implementation supports.
+  </dd>
+  <dt><dfn dict-member for=VideoEncoderPredictionConstraints>maxReferences</dfn></dt>
+  <dd>
+    How many reference buffers that can be predicted from when encoding a frame.
+  </dd>
+  <dt><dfn dict-member for=VideoEncoderPredictionConstraints>supportedFrameTypes</dfn></dt>
+  <dd>
+    What frame types the implementation can produce. Set of "key", "start" and "delta"
+  </dd>
+</dl>
+
+<dfn>QpRange</dfn>{#qp-range}
+------------------------------------------------------------------------
+<xmp class='idl'>
+dictionary QpRange {
+  unsigned long minQp;
+  unsigned long maxQp;
+};
+</xmp>
+
+<dl>
+  <dt><dfn dict-member for=QpRange>minQp</dfn></dt>
+  <dd>
+    The minimum QP supported by the implementation. A minimum QP of 0 means lossless encoding.
+  </dd>
+  <dt><dfn dict-member for=QpRange>maxQp</dfn></dt>
+  <dd>
+    The maximum QP supported by the implementation.
+  </dd>
+</dl>
+
+<dfn>VideoEncoderBuffer</dfn>{#video-encoder-buffer}
+------------------------------------------------------------------------
+<xmp class='idl'>
+dictionary VideoEncoderBuffer {
+  required DOMString id;
+};
+</xmp>
+
+<dl>
+  <dt><dfn dict-member for=VideoEncoderBuffer>id</dfn></dt>
+  <dd>
+    The ID identifying the reference buffer.
+  </dd>
+</dl>
 
 Configurations{#configurations}
 ===============================
@@ -2438,6 +2589,92 @@ NOTE: Codec-specific extensions to {{VideoEncoderEncodeOptions}} are described i
     <em class="rfc2119">MUST</em> be encoded as a key frame. A value of `false`
     indicates that the User Agent has flexibility to decide whether the frame
     will be encoded as a [=key frame=].
+  </dd>
+</dl>
+
+FrameEncodeOptions{#frame-encode-options}
+-------------------------------------------------
+<xmp class='idl'>
+dictionary FrameEncodeOptions {
+  VideoEncoderFrameType frameType;
+  unsigned long width;
+  unsigned long height;
+  CqpSettings rateControlSettings;
+  sequence<VideoEncoderBuffer> referenceBuffers;
+  VideoEncoderBuffer? updateBuffer;   
+};
+</xmp>
+
+<dl>
+  <dt><dfn dict-member for=FrameEncodeOptions>frameType</dfn></dt>
+  <dd>
+    What type of frame to encode.
+  </dd>
+  <dt><dfn dict-member for=FrameEncodeOptions>width</dfn></dt>
+  <dd>
+    The final width of the frame after decoding.
+  </dd>
+  <dt><dfn dict-member for=FrameEncodeOptions>height</dfn></dt>
+  <dd>
+    The final height of the frame after decoding.
+  </dd>
+  <dt><dfn dict-member for=FrameEncodeOptions>rateControlSettings</dfn></dt>
+  <dd>
+    What rate control settings that will be used when encoding the frame.
+  </dd>
+  <dt><dfn dict-member for=FrameEncodeOptions>referenceBuffers</dfn></dt>
+  <dd>
+    Which reference buffers the encoder is allowed to predict from when encoding
+    the frame. When a key frame or start frame is requested then {{referenceBuffers}}
+    <em class="rfc2119">MUST</em> be empty. When a delta frame is requested then
+    {{referenceBuffers}} <em class="rfc2119">MUST</em> not be empty.
+  </dd>
+  <dt><dfn dict-member for=FrameEncodeOptions>updateBuffer</dfn></dt>
+  <dd>
+    Which buffer to store the reconstructed frame. When a key frame or start
+    frame is requested then {{updateBuffer}} <em class="rfc2119">MUST</em> not
+    be empty.
+  </dd>
+</dl>
+
+VideoEncoderFrameType{#video-encoder-frame-type}
+-------------------------------------------------
+<xmp class='idl'>
+enum VideoEncoderFrameType {
+  "key",
+  "start",
+  "delta"
+};
+</xmp>
+
+<dl>
+  <dt><dfn enum-value for=VideoEncoderFrameType>key</dfn></dt>
+  <dd>
+    An independetly decodable frame that also resets the decoder state.
+  </dd>
+  <dt><dfn enum-value for=VideoEncoderFrameType>start</dfn></dt>
+  <dd>
+    An independetly decodable frame that does not reset the decoder state.
+  </dd>
+  <dt><dfn enum-value for=VideoEncoderFrameType>delta</dfn></dt>
+  <dd>
+    An frame which depends on prior state for decoding.
+  </dd>
+</dl>
+
+
+CqpSettings{#cqp-settings}
+-------------------------------------------------
+<xmp class='idl'>
+dictionary CqpSettings {
+  unsigned long targetQp;
+};
+</xmp>
+
+<dl>
+  <dt><dfn dict-member for=CqpSettings>targetQp</dfn></dt>
+  <dd>
+    Which QP value the frame should be encoded with.
   </dd>
 </dl>
 
